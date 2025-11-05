@@ -1,0 +1,17 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Material {
+  id          Int      @id @default(autoincrement())
+  nome        String
+  descricao   String?
+  quantidade  Int
+  localizacao String?
+  criadoEm    DateTime @default(now())
+}
