@@ -17,9 +17,10 @@ model Material {
   categoria     String?
   ativo         Boolean          @default(true)
   criadoEm      DateTime         @default(now())
-  atualizadoEm  DateTime         @updatedAt
+  atualizadoEm  DateTime         @default(now()) @updatedAt
   movimentacoes Movimentacao[]
 }
+
 
 model Movimentacao {
   id                 Int      @id @default(autoincrement())
