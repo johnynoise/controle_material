@@ -21,12 +21,17 @@ app.get("/materiais", async (req, res) => {
 // POST - adicionar material
 app.post("/materiais", async (req, res) => {
   const { nome, descricao, quantidade, localizacao } = req.body;
+  console.log("POST /materiais body:", req.body);
   try {
+    // Ensure quantidade is an integer before saving
+    const quantidadeInt = quantidade === undefined || quantidade === null ? 0 : Number(quantidade);
     const novo = await prisma.material.create({
-      data: { nome, descricao, quantidade, localizacao },
+      data: { nome, descricao, quantidade: quantidadeInt, localizacao },
     });
+    console.log("Material criado:", novo);
     res.status(201).json(novo);
   } catch (err) {
+    console.error("Erro ao criar material:", err);
     res.status(500).json({ error: "Erro ao adicionar material" });
   }
 });

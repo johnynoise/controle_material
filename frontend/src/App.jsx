@@ -18,12 +18,16 @@ function App() {
   }, []);
 
   const adicionarMaterial = async () => {
+    // Debug: log the payload being sent
+    const payload = { ...novoMaterial, quantidade: Number(novoMaterial.quantidade) };
+    console.log("Enviando payload:", payload);
+
     const response = await fetch("http://localhost:3001/materiais", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(novoMaterial),
+      body: JSON.stringify(payload),
     });
 
     const data = await response.json();
@@ -52,7 +56,7 @@ function App() {
           type="number"
           placeholder="Quantidade"
           value={novoMaterial.quantidade}
-          onChange={(e) => setNovoMaterial({ ...novoMaterial, quantidade: e.target.value })}
+          onChange={(e) => setNovoMaterial({ ...novoMaterial, quantidade: Number(e.target.value) })}
         />
         <input
           type="text"
