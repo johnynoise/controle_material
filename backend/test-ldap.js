@@ -30,7 +30,7 @@ client.bind(process.env.LDAP_BIND_DN, process.env.LDAP_BIND_PASSWORD, (err) => {
   console.log('Base DN da busca:', process.env.LDAP_BASE_DN);
   
   // Simula uma tentativa de login
-  const testEmail = 'johny.luzia@wasion.com.br';
+  const testEmail = 'seu-email';
   const filter = process.env.LDAP_USER_FILTER.replace('{username}', testEmail);
   console.log('\n🔍 Tentando autenticar com:', testEmail);
   console.log('Filtro aplicado:', filter);

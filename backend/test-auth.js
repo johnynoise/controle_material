@@ -5,11 +5,11 @@ dotenv.config();
 const testAuth = async () => {
   try {
     console.log('\n🔍 Testando autenticação LDAP com:');
-    console.log('Email:', 'johny.luzia@wasion.com.br');
+    console.log('Email:', 'seu-email');
     console.log('URL:', process.env.LDAP_URL);
     console.log('Base DN:', process.env.LDAP_BASE_DN);
 
-    const result = await ldapService.authenticate('johny.luzia@wasion.com.br', 'Zaya@7100');
+    const result = await ldapService.authenticate('seu-email', 'sua-senha');
     console.log('\n✅ Autenticação bem sucedida!');
     console.log('Dados do usuário:', result);
   } catch (error) {

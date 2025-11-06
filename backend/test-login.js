@@ -10,8 +10,8 @@ const testLogin = async () => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        email: 'johny.luzia@wasion.com.br',
-        password: 'Zaya@7100'
+        email: 'seu-email',
+        password: 'sua-senha'
       })
     });
 
