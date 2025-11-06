@@ -4,8 +4,7 @@ import {
   TrendingUp, TrendingDown, History, BarChart3, Filter, FileText, Download,
   AlertTriangle, Archive, Eye, Calendar, Users, Loader2, RefreshCw, MapPin, Box
 } from "lucide-react";
-
-const API_URL = "http://localhost:3001";
+import api from "./services/api";
 
 export default function App() {
   const [materiais, setMateriais] = useState([]);
@@ -77,9 +76,7 @@ export default function App() {
 
   const carregarMateriais = async () => {
     try {
-      const response = await fetch(`${API_URL}/materiais`);
-      if (!response.ok) throw new Error("Erro ao buscar materiais");
-      const data = await response.json();
+      const data = await api.get('/materiais');
       setMateriais(data);
     } catch (error) {
       console.error("Erro ao carregar materiais:", error);
@@ -89,9 +86,7 @@ export default function App() {
 
   const carregarMovimentacoes = async () => {
     try {
-      const response = await fetch(`${API_URL}/movimentacoes?limit=50`);
-      if (!response.ok) throw new Error("Erro ao buscar movimentações");
-      const data = await response.json();
+      const data = await api.get('/movimentacoes?limit=50');
       setMovimentacoes(data);
     } catch (error) {
       console.error("Erro ao carregar movimentações:", error);
@@ -100,9 +95,7 @@ export default function App() {
 
   const carregarEstatisticas = async () => {
     try {
-      const response = await fetch(`${API_URL}/estatisticas`);
-      if (!response.ok) throw new Error("Erro ao buscar estatísticas");
-      const data = await response.json();
+      const data = await api.get('/estatisticas');
       setEstatisticas(data);
     } catch (error) {
       console.error("Erro ao carregar estatísticas:", error);
@@ -178,14 +171,7 @@ export default function App() {
         categoria: novoMaterial.categoria || null
       };
 
-      const response = await fetch(`${API_URL}/materiais`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Erro no servidor');
+      const data = await api.post('/materiais', payload);
 
       await carregarDados();
       setNovoMaterial({ nome: "", descricao: "", quantidade: 0, localizacao: "", estoqueMinimo: 5, categoria: "" });
@@ -210,14 +196,7 @@ export default function App() {
         estoqueMinimo: Number(novoMaterial.estoqueMinimo)
       };
 
-      const response = await fetch(`${API_URL}/materiais/${editingId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Erro no servidor');
+      const data = await api.put(`/materiais/${editingId}`, payload);
 
       await carregarDados();
       setNovoMaterial({ nome: "", descricao: "", quantidade: 0, localizacao: "", estoqueMinimo: 5, categoria: "" });
@@ -236,11 +215,7 @@ export default function App() {
     if (!window.confirm("Tem certeza que deseja desativar este material?")) return;
 
     try {
-      const response = await fetch(`${API_URL}/materiais/${id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) throw new Error("Erro ao desativar material");
+      await api.delete(`/materiais/${id}`);
 
       await carregarDados();
       showAlert("Material desativado com sucesso!", "success");
@@ -254,20 +229,13 @@ export default function App() {
 
     try {
       setIsSubmitting(true);
-      const response = await fetch(`${API_URL}/movimentacoes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          materialId: materialSelecionado.id,
-          tipo: movimentacao.tipo,
-          quantidade: Number(movimentacao.quantidade),
-          tecnico: movimentacao.tecnico.trim(),
-          observacao: movimentacao.observacao?.trim() || null
-        }),
+      const data = await api.post('/movimentacoes', {
+        materialId: materialSelecionado.id,
+        tipo: movimentacao.tipo,
+        quantidade: Number(movimentacao.quantidade),
+        tecnico: movimentacao.tecnico.trim(),
+        observacao: movimentacao.observacao?.trim() || null
       });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Erro no servidor');
 
       await carregarDados();
       setShowMovimentacaoModal(false);
@@ -284,9 +252,7 @@ export default function App() {
 
   const abrirHistorico = async (material) => {
     try {
-      const response = await fetch(`${API_URL}/materiais/${material.id}/movimentacoes`);
-      if (!response.ok) throw new Error("Erro ao carregar histórico");
-      const data = await response.json();
+      const data = await api.get(`/materiais/${material.id}/movimentacoes`);
       setMaterialSelecionado({ ...material, movimentacoes: data });
       setShowHistoricoModal(true);
     } catch (error) {
@@ -947,9 +913,7 @@ export default function App() {
                   if (filtroRelatorio.dataFim) params.append('dataFim', filtroRelatorio.dataFim);
                   if (filtroRelatorio.tipo) params.append('tipo', filtroRelatorio.tipo);
 
-                  const res = await fetch(`${API_URL}/relatorios/movimentacoes?${params}`);
-                  if (!res.ok) throw new Error("Erro ao gerar relatório");
-                  const data = await res.json();
+                  const data = await api.get(`/relatorios/movimentacoes?${params}`);
 
                   let csv = "ID,Material,Tipo,Quantidade,Técnico,Observação,DataHora\n";
                   (data || []).forEach(r => {
