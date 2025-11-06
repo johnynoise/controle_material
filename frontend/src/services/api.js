@@ -11,6 +11,11 @@ const api = {
       },
     });
     if (!response.ok) {
+      if (response.status === 401) {
+        AuthService.logout();
+        window.location.href = '/';
+        throw new Error('Sessão expirada ou usuário não autenticado');
+      }
       const error = await response.json();
       throw new Error(error.error || 'Erro na requisição');
     }

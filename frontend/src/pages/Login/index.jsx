@@ -156,20 +156,9 @@ export default function Login() {
                   <div className="w-full border-t border-slate-700/50" />
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-slate-900/50 text-slate-400 backdrop-blur-sm">
-                    Não tem uma conta?
-                  </span>
                 </div>
               </div>
 
-              <div className="mt-6">
-                <a
-                  href="#"
-                  className="w-full flex justify-center py-2 px-4 border border-slate-700 rounded-md shadow-xl text-sm font-medium text-slate-300 bg-slate-800/50 hover:bg-slate-700/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 backdrop-blur-sm transition-all duration-200 hover:scale-[1.02]"
-                >
-                  Solicitar acesso
-                </a>
-              </div>
             </div>
           </div>
         </div>

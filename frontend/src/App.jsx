@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
+import { AuthService } from "./services/auth";
 import {
   Package, Search, Plus, Edit2, Trash2, AlertCircle, CheckCircle, X, Save,
   TrendingUp, TrendingDown, History, BarChart3, Filter, FileText, Download,
-  AlertTriangle, Archive, Eye, Calendar, Users, Loader2, RefreshCw, MapPin, Box
+  AlertTriangle, Archive, Eye, Calendar, Users, Loader2, RefreshCw, MapPin, Box,
+  LogOut
 } from "lucide-react";
 import api from "./services/api";
 
@@ -52,6 +54,11 @@ export default function App() {
   const categorias = ["Periféricos", "Componentes", "Cabos", "Acessórios", "Ferramentas", "Consumíveis"];
 
   useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      window.location.href = '/';
+      return;
+    }
     carregarDados();
   }, []);
 
@@ -363,6 +370,17 @@ export default function App() {
                 className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 py-2.5 rounded-lg font-semibold transition-all duration-200 shadow-lg shadow-blue-500/30 hover:scale-105 border border-blue-400/30 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
+              </button>
+
+              <button
+                onClick={() => {
+                  AuthService.logout();
+                  window.location.href = '/';
+                }}
+                className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-4 py-2.5 rounded-lg font-semibold transition-all duration-200 shadow-lg shadow-red-500/30 hover:shadow-red-500/50 hover:scale-105 border border-red-400/30"
+              >
+                <LogOut size={18} />
+                <span className="hidden sm:inline">Sair</span>
               </button>
             </div>
           </div>
