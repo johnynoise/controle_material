@@ -1,41 +1,40 @@
-version: '3.8'
+version: "3.9"
 
 services:
-  mysql:
+  db:
     image: mysql:8.0
+    container_name: controle_db
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: controle_material
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
       - "3306:3306"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - db_data:/var/lib/mysql
     networks:
-      - app-network
+      - controle_net
 
   backend:
     build: ./backend
+    container_name: controle_backend
+    restart: always
     ports:
       - "3001:3001"
-    environment:
-      - DATABASE_URL=mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/controle_material
-      - LDAP_URL=${LDAP_URL}
-      - LDAP_BASE_DN=${LDAP_BASE_DN}
-      - LDAP_BIND_DN=${LDAP_BIND_DN}
-      - LDAP_BIND_PASSWORD=${LDAP_BIND_PASSWORD}
-      - LDAP_SEARCH_BASE=${LDAP_SEARCH_BASE}
-      - LDAP_USER_FILTER=${LDAP_USER_FILTER}
-      - LDAP_SEARCH_ATTRIBUTES=${LDAP_SEARCH_ATTRIBUTES}
+    env_file:
+      - .env
+      - ./backend/.env
     depends_on:
-      - mysql
+      - db
     networks:
-      - app-network
+      - controle_net
 
   frontend:
     build: ./frontend
+    container_name: controle_frontend
+    restart: always
     ports:
       - "5173:5173"
     environment:
@@ -43,12 +42,11 @@ services:
     depends_on:
       - backend
     networks:
-      - app-network
+      - controle_net
 
 volumes:
-  mysql_data:
-    driver: local
+  db_data:
 
 networks:
-  app-network:
+  controle_net:
     driver: bridge
