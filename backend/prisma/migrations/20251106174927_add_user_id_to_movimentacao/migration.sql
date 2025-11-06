@@ -1,2 +1,2 @@
 -- AlterTable
-ALTER TABLE "Movimentacao" ADD COLUMN "userId" INTEGER;
+ALTER TABLE `Movimentacao` ADD COLUMN `userId` INTEGER;
