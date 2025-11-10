@@ -9,6 +9,26 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
+// Health check
+app.get("/health", async (req, res) => {
+  try {
+    // Testa a conexão com o banco
+    await prisma.$queryRaw`SELECT 1`;
+    res.status(200).json({ 
+      status: "healthy",
+      database: "connected",
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(503).json({ 
+      status: "unhealthy",
+      database: "disconnected",
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Rotas de autenticação (públicas)
 app.post("/auth/login", AuthController.login);
 app.post("/auth/register", AuthController.register);

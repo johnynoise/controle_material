@@ -1,20 +1,39 @@
 #!/bin/sh
 
+# Habilita modo de erro
 set -e
 
-echo "Waiting for MySQL to be ready..."
-until mysqladmin ping -h"db" -P"3306" -u"root" -p"$MYSQL_ROOT_PASSWORD" --silent; do
-  echo "MySQL is unavailable - sleeping"
-  sleep 1
+# Função para verificar MySQL usando nc
+check_mysql() {
+  nc -z db 3306 || return 1
+}
+
+# Espera MySQL ficar disponível
+echo "⏳ Aguardando MySQL ficar disponível..."
+RETRIES=30
+until check_mysql || [ $RETRIES -eq 0 ]; do
+  echo "⌛ MySQL indisponível - tentativa $((30-RETRIES+1)) de 30"
+  RETRIES=$((RETRIES-1))
+  sleep 2
 done
 
-echo "MySQL is up - proceeding with initialization"
+if [ $RETRIES -eq 0 ]; then
+  echo "❌ Timeout aguardando MySQL"
+  exit 1
+fi
 
-echo "Running Prisma generate..."
+echo "✅ MySQL está pronto!"
+
+# Gera cliente Prisma
+echo "🔄 Gerando cliente Prisma..."
 npx prisma generate
+echo "✅ Cliente Prisma gerado!"
 
-echo "Running database migrations..."
+# Aplica migrations
+echo "🔄 Aplicando migrations..."
 npx prisma migrate deploy
+echo "✅ Migrations aplicadas!"
 
-echo "Starting the server..."
-exec npm start
+# Inicia o servidor
+echo "🚀 Iniciando servidor..."
+exec node server.js

@@ -1,19 +1,32 @@
-FROM node:18
+# Etapa 1: Build do frontend
+FROM node:18 AS build
 
 WORKDIR /app
 
-# Copiar o código fonte
+# Copia apenas os arquivos de dependência primeiro
+COPY package*.json ./
+
+# Instala dependências e pacotes necessários para o build
+RUN npm install
+RUN npm install @rollup/rollup-linux-x64-gnu
+
+# Copia o restante do código
 COPY . .
 
-# Limpar cache e reinstalar dependências
-RUN rm -rf node_modules package-lock.json && \
-    npm install && \
-    npm run build
+# Compila o projeto
+RUN npm run build
 
-# Instalar um servidor web simples
-RUN npm install -g serve
+# Etapa 2: Servir com Nginx (imagem leve)
+FROM nginx:alpine
 
-EXPOSE 5173
+# Remove configuração padrão e copia nossa configuração
+RUN rm -rf /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/nginx.conf
 
-# Servir a aplicação construída
-CMD ["serve", "-s", "dist", "-l", "5173"]
+# Remove site padrão e copia o build gerado
+RUN rm -rf /usr/share/nginx/html/*
+COPY --from=build /app/dist /usr/share/nginx/html
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
