@@ -3,7 +3,6 @@ version: '3.8'
 services:
   traefik:
     image: traefik:v3.0
-    container_name: traefik
     command:
       - "--api.dashboard=true"
       - "--api.insecure=true" # ⚠️ desative em produção
@@ -17,32 +16,37 @@ services:
       - controle_net
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+      replicas: 1
 
   db:
     image: mysql:8.0
-    container_name: controle_db
-    restart: always
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    ports:
-      - "3306:3306"
     volumes:
       - db_data:/var/lib/mysql
     networks:
       - controle_net
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 2G
+
 
   backend:
     image: controle_material-backend:latest
-    container_name: controle_backend
-    restart: always
     env_file:
       - .env
       - ./backend/.env
@@ -56,10 +60,16 @@ services:
         condition: service_healthy
     networks:
       - controle_net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+
 
   frontend:
     image: controle_material-frontend:latest
-    container_name: controle_frontend
     restart: always
     environment:
       - VITE_API_URL=http://api.estoque.ti.wasion.com.br
@@ -69,14 +79,19 @@ services:
       - "traefik.http.routers.frontend.entrypoints=web"
       - "traefik.http.services.frontend.loadbalancer.server.port=80"
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
     networks:
       - controle_net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
 
 volumes:
   db_data:
 
 networks:
   controle_net:
-    driver: bridge
+    driver: overlay
