@@ -5,7 +5,7 @@ services:
     image: traefik:v3.0
     command:
       - "--api.dashboard=true"
-      - "--api.insecure=true" # ⚠️ desative em produção
+      - "--api.insecure=true" # ⚠️ Desative em produção!
       - "--providers.swarm=true"
       - "--providers.swarm.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
@@ -13,7 +13,7 @@ services:
       - "80:80"
       - "8080:8080" # Dashboard Traefik
     networks:
-      - controle_net
+      - controle_overlay
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     deploy:
@@ -21,30 +21,32 @@ services:
         constraints: [node.role == manager]
       replicas: 1
 
-  db:
-    image: mysql:8.0
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    volumes:
-      - db_data:/var/lib/mysql
-    networks:
-      - controle_net
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
-      interval: 10s
-      timeout: 10s
-      retries: 10
-    deploy:
-      replicas: 1
-      resources:
-        limits:
-          cpus: "1.0"
-          memory: 2G
-      restart_policy:
-        condition: on-failure
+db:
+  image: mysql:8.0
+  command: ["--default-authentication-plugin=mysql_native_password"]
+  environment:
+    MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    MYSQL_DATABASE: ${MYSQL_DATABASE}
+    MYSQL_USER: ${MYSQL_USER}
+    MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+  volumes:
+    - db_data:/var/lib/mysql
+  networks:
+    - controle_overlay
+  healthcheck:
+    test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p${MYSQL_ROOT_PASSWORD}"]
+    interval: 10s
+    timeout: 10s
+    retries: 15
+  deploy:
+    replicas: 1
+    resources:
+      limits:
+        cpus: "1.0"
+        memory: 2G
+    restart_policy:
+      condition: on-failure
+
 
   backend:
     image: controle_material-backend:20251111-1
@@ -54,7 +56,7 @@ services:
     depends_on:
       - db
     networks:
-      - controle_net
+      - controle_overlay
     deploy:
       replicas: 1
       restart_policy:
@@ -64,10 +66,8 @@ services:
       labels:
         - "traefik.enable=true"
         - "traefik.docker.network=controle_overlay"
-        # Host-based router (kept for when DNS is available)
         - "traefik.http.routers.backend.rule=Host(`api.estoque.ti.wasion.com.br`)"
         - "traefik.http.routers.backend.entrypoints=web"
-        # Path-based router to avoid DNS: http://localhost/api -> backend:3001
         - "traefik.http.routers.backend-path.rule=PathPrefix(`/api`)"
         - "traefik.http.routers.backend-path.entrypoints=web"
         - "traefik.http.routers.backend-path.middlewares=backend-strip"
@@ -78,11 +78,11 @@ services:
   frontend:
     image: controle_material-frontend:20251111-3
     environment:
-      - VITE_API_URL=
+      - VITE_API_URL=http://api.estoque.ti.wasion.com.br/api
     depends_on:
       - backend
     networks:
-      - controle_net
+      - controle_overlay
     deploy:
       replicas: 1
       restart_policy:
@@ -92,10 +92,8 @@ services:
       labels:
         - "traefik.enable=true"
         - "traefik.docker.network=controle_overlay"
-        # Host-based router (kept for when DNS is available)
         - "traefik.http.routers.frontend.rule=Host(`estoque.ti.wasion.com.br`)"
         - "traefik.http.routers.frontend.entrypoints=web"
-        # Path-based catch-all to serve SPA at http://localhost/
         - "traefik.http.routers.frontend-root.rule=PathPrefix(`/`)"
         - "traefik.http.routers.frontend-root.entrypoints=web"
         - "traefik.http.routers.frontend-root.priority=10"
@@ -105,6 +103,5 @@ volumes:
   db_data:
 
 networks:
-  controle_net:
+  controle_overlay:
     external: true
-    name: controle_overlay
