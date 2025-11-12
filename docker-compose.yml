@@ -21,31 +21,30 @@ services:
         constraints: [node.role == manager]
       replicas: 1
 
-db:
-  image: mysql:8.0
-  command: ["--default-authentication-plugin=mysql_native_password"]
-  env_file:
-    - .env
-  volumes:
-    - db_data:/var/lib/mysql
-  networks:
-    - controle_overlay
-  ports:
+  db:
+    image: mysql:8.0
+    command: ["--default-authentication-plugin=mysql_native_password"]
+    env_file:
+      - .env
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - controle_overlay
+    ports:
     - "3306:3306"  # <--- adiciona isso
-  healthcheck:
-    test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p${MYSQL_ROOT_PASSWORD}"]
-    interval: 10s
-    timeout: 10s
-    retries: 15
-  deploy:
-    replicas: 1
-    resources:
-      limits:
-        cpus: "1.0"
-        memory: 2G
-    restart_policy:
-      condition: on-failure
-
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 2G
+      restart_policy:
+        condition: on-failure
 
   backend:
     image: controle_material-backend:20251111-1
