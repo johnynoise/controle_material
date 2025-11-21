@@ -1,5 +1,5 @@
 # Etapa 1: Build do frontend
-FROM node:18 AS build
+FROM node:25 AS build
 
 WORKDIR /app
 
