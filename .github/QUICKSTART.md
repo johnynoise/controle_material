@@ -1,8 +1,31 @@
 # 🚀 Quick Start - CI/CD Pipeline
 
+## 📋 Pré-requisitos
+
+- [ ] Acesso admin ao repositório no GitHub
+- [ ] Acesso SSH ao servidor de deploy (10.10.1.222)
+- [ ] Docker Registry local rodando (10.10.1.222:5000)
+- [ ] **GitHub Actions Self-Hosted Runner instalado** → [Guia de instalação](./RUNNER-SETUP.md)
+
+---
+
 ## ⚡ Setup Rápido (5 minutos)
 
-### 1️⃣ Instalar GitHub CLI
+### 1️⃣ Instalar Self-Hosted Runner
+
+**⚠️ IMPORTANTE**: A pipeline precisa de um runner na sua rede local.
+
+Siga o guia completo: **[RUNNER-SETUP.md](./RUNNER-SETUP.md)**
+
+Resumo rápido:
+```bash
+# No servidor ou máquina da rede 10.10.1.x
+mkdir actions-runner && cd actions-runner
+# Baixar runner (comando fornecido pelo GitHub)
+# Configurar e instalar como serviço
+```
+
+### 2️⃣ Instalar GitHub CLI
 
 **Windows (PowerShell)**:
 ```powershell
@@ -17,14 +40,36 @@ sudo apt update
 sudo apt install gh
 ```
 
-### 2️⃣ Autenticar
+### 2️⃣ Instalar GitHub CLI
+
+**Windows (PowerShell)**:
+```powershell
+winget install --id GitHub.cli
+```
+
+**Linux**:
+```bash
+sudo apt install gh -y
+```
+
+### 3️⃣ Autenticar
 
 ```bash
 gh auth login
 # Escolha: GitHub.com → HTTPS → Yes → Login with a browser
 ```
 
-### 3️⃣ Configurar Secrets
+### 3️⃣ Autenticar
+
+```bash
+gh auth login
+# Escolha: GitHub.com → HTTPS → Yes → Login with a browser
+```
+
+### 4️⃣ Configurar Secrets (Opcional)
+
+> **Nota**: Como estamos usando self-hosted runner, SSH_PRIVATE_KEY não é mais necessário.
+> O runner já tem acesso direto ao servidor via SSH.
 
 **Windows**:
 ```powershell
@@ -39,7 +84,7 @@ chmod +x setup-secrets.sh
 ./setup-secrets.sh
 ```
 
-### 4️⃣ Preparar Servidor
+### 5️⃣ Preparar Servidor
 
 ```bash
 # SSH no servidor

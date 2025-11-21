@@ -17,7 +17,7 @@ env:
 jobs:
   build:
     name: Build and Push Images
-    runs-on: ubuntu-latest
+    runs-on: self-hosted  # Runner local na sua rede
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -64,7 +64,7 @@ jobs:
   deploy:
     name: Deploy to Swarm
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: self-hosted  # Runner local na sua rede
     steps:
       - name: Download backend image
         uses: actions/download-artifact@v4
@@ -76,24 +76,17 @@ jobs:
         with:
           name: frontend-image
 
-      - name: Copy images to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ env.DEPLOY_HOST }}
-          username: ${{ env.DEPLOY_USER }}
-          port: ${{ env.DEPLOY_PORT }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "backend-image.tar,frontend-image.tar"
-          target: "/tmp/"
-
       - name: Deploy on Server
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ env.DEPLOY_HOST }}
-          username: ${{ env.DEPLOY_USER }}
-          port: ${{ env.DEPLOY_PORT }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
+        env:
+          DOCKER_REGISTRY: ${{ env.DOCKER_REGISTRY }}
+          STACK_NAME: ${{ env.STACK_NAME }}
+        run: |
+          # Copiar imagens para o servidor via SCP
+          scp -o StrictHostKeyChecking=no backend-image.tar ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }}:/tmp/
+          scp -o StrictHostKeyChecking=no frontend-image.tar ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }}:/tmp/
+          
+          # Executar deploy no servidor via SSH
+          ssh -o StrictHostKeyChecking=no ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }} << 'EOF'
             # Load images
             echo "📦 Loading backend image..."
             docker load -i /tmp/backend-image.tar
@@ -113,9 +106,6 @@ jobs:
 
             # Atualizar serviços
             echo "🔄 Updating services..."
-            export MYSQL_DATABASE=${{ env.MYSQL_DATABASE }}
-            export DOCKER_REGISTRY=${{ env.DOCKER_REGISTRY }}
-
             docker service update --image ${{ env.DOCKER_REGISTRY }}/controle_material-backend:latest ${{ env.STACK_NAME }}_backend
             docker service update --image ${{ env.DOCKER_REGISTRY }}/controle_material-frontend:latest ${{ env.STACK_NAME }}_frontend
 
@@ -130,3 +120,4 @@ jobs:
             docker service ps ${{ env.STACK_NAME }}_frontend --no-trunc | head -n 3
 
             echo "🎉 Deploy concluído!"
+          EOF
