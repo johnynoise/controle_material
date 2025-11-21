@@ -1,0 +1,52 @@
+name: Security Scan
+
+on:
+  schedule:
+    # Executa diariamente às 3h da manhã
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+
+jobs:
+  security:
+    name: Security Vulnerability Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Scan backend dependencies
+        working-directory: ./backend
+        run: |
+          npm audit --json > audit-backend.json || true
+          cat audit-backend.json
+
+      - name: Scan frontend dependencies
+        working-directory: ./frontend
+        run: |
+          npm audit --json > audit-frontend.json || true
+          cat audit-frontend.json
+
+      - name: Check for secrets in code
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD

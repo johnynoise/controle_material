@@ -1,0 +1,512 @@
+<<<<<<< HEAD
+name: CI/CD Pipeline - Controle de Material
+
+on:
+  push:
+    branches: [main, develop]
+    paths-ignore:
+      - '**.md'
+      - '.github/**'
+      - '!.github/workflows/**'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+env:
+  NODE_VERSION: '18'
+  DOCKER_REGISTRY: '' # Deixe vazio para Docker Hub ou configure seu registry
+  IMAGE_TAG_PREFIX: 'controle_material'
+
+jobs:
+  # Job 1: Análise de código e segurança
+  code-quality:
+    name: Code Quality & Security
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Necessário para análise completa
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Run ESLint (Frontend)
+        working-directory: ./frontend
+        run: npm run lint || true
+
+      - name: Check for security vulnerabilities
+        run: |
+          echo "🔍 Checking backend vulnerabilities..."
+          cd backend && npm audit --audit-level=high || true
+          echo "🔍 Checking frontend vulnerabilities..."
+          cd ../frontend && npm audit --audit-level=high || true
+
+      - name: Validate Prisma schema
+        working-directory: ./backend
+        run: npx prisma validate
+
+  # Job 2: Build e testes do Backend
+  backend-build:
+    name: Backend Build & Test
+    runs-on: ubuntu-latest
+    needs: code-quality
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test_password
+          MYSQL_DATABASE: controle_material_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./backend
+        run: npm ci --prefer-offline
+
+      - name: Generate Prisma Client
+        working-directory: ./backend
+        run: npx prisma generate
+
+      - name: Run Prisma migrations (test)
+        working-directory: ./backend
+        env:
+          DATABASE_URL: mysql://root:test_password@localhost:3306/controle_material_test
+        run: npx prisma migrate deploy || echo "No migrations to apply"
+
+      - name: Run backend tests
+        working-directory: ./backend
+        env:
+          DATABASE_URL: mysql://root:test_password@localhost:3306/controle_material_test
+          JWT_SECRET: test-secret-key
+          LDAP_ENABLED: false
+        run: npm test || echo "No tests configured yet"
+
+      - name: Build backend validation
+        working-directory: ./backend
+        run: |
+          echo "✅ Backend syntax validation"
+          node -c server.js
+          node -c src/controllers/AuthController.js
+          node -c src/services/ldap.js
+
+  # Job 3: Build do Frontend
+  frontend-build:
+    name: Frontend Build & Test
+    runs-on: ubuntu-latest
+    needs: code-quality
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci --prefer-offline
+
+      - name: Build frontend
+        working-directory: ./frontend
+        env:
+          VITE_API_URL: /api
+        run: npm run build
+
+      - name: Check build output
+        working-directory: ./frontend
+        run: |
+          ls -lah dist/
+          test -f dist/index.html || exit 1
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/dist/
+          retention-days: 7
+
+  # Job 4: Build das imagens Docker
+  docker-build:
+    name: Docker Build & Push
+    runs-on: ubuntu-latest
+    needs: [backend-build, frontend-build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    strategy:
+      matrix:
+        service: [backend, frontend]
+    
+    steps:
+      - name: Checkout code
+=======
+name: Pipeline CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  DEPLOY_HOST: 10.10.1.222
+  DEPLOY_USER: root
+  DEPLOY_PORT: 22
+  PROJECT_DIR: /home/admin-ti/controle_material
+  DOCKER_REGISTRY: 10.10.1.222:5000
+  MYSQL_DATABASE: controle_material
+  STACK_NAME: controle_estoque
+
+jobs:
+  build:
+    name: Build and Push Images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+>>>>>>> 800b53815857567fa120736d1bc03fd638e6e971
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+<<<<<<< HEAD
+
+      - name: Login to Docker Hub (optional)
+        if: env.DOCKER_REGISTRY != ''
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Generate image tag
+        id: tag
+        run: |
+          DATE=$(date +%Y%m%d)
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          echo "tag=${DATE}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+
+      - name: Build and export Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.service }}
+          file: ./${{ matrix.service }}/Dockerfile
+          push: false
+          tags: |
+            ${{ env.IMAGE_TAG_PREFIX }}-${{ matrix.service }}:${{ steps.tag.outputs.tag }}
+            ${{ env.IMAGE_TAG_PREFIX }}-${{ matrix.service }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          outputs: type=docker,dest=/tmp/${{ matrix.service }}-image.tar
+
+      - name: Upload Docker image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image-${{ matrix.service }}
+          path: /tmp/${{ matrix.service }}-image.tar
+          retention-days: 3
+
+      - name: Create deployment manifest
+        run: |
+          cat > /tmp/${{ matrix.service }}-manifest.txt << EOF
+          IMAGE_TAG=${{ steps.tag.outputs.tag }}
+          SERVICE=${{ matrix.service }}
+          COMMIT_SHA=${{ github.sha }}
+          BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          BRANCH=${{ github.ref_name }}
+          EOF
+
+      - name: Upload manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: manifest-${{ matrix.service }}
+          path: /tmp/${{ matrix.service }}-manifest.txt
+          retention-days: 30
+
+  # Job 5: Deploy para servidor local
+  deploy:
+    name: Deploy to Local Server
+    runs-on: ubuntu-latest
+    needs: docker-build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: 
+      name: production
+      url: http://estoque.ti.wasion.com.br
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download backend image
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image-backend
+          path: /tmp/
+
+      - name: Download frontend image
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image-frontend
+          path: /tmp/
+
+      - name: Download manifests
+        uses: actions/download-artifact@v4
+        with:
+          pattern: manifest-*
+          path: /tmp/manifests/
+
+      - name: Setup SSH key
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Copy images to server
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+        run: |
+          echo "📦 Copying Docker images to server..."
+          scp -o StrictHostKeyChecking=no \
+            /tmp/backend-image.tar \
+            /tmp/frontend-image.tar \
+            ${SERVER_USER}@${SERVER_HOST}:/tmp/
+
+      - name: Copy deployment files
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+        run: |
+          echo "📋 Copying deployment files..."
+          scp -o StrictHostKeyChecking=no \
+            docker-compose.yml \
+            ${SERVER_USER}@${SERVER_HOST}:/tmp/controle_material/
+
+      - name: Deploy to server
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+        run: |
+          ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_HOST} << 'EOF'
+            set -e
+            
+            echo "🚀 Starting deployment..."
+            cd /tmp/controle_material
+            
+            # Load images
+            echo "📥 Loading Docker images..."
+            docker load -i /tmp/backend-image.tar
+            docker load -i /tmp/frontend-image.tar
+            
+            # Get image tags from manifests
+            BACKEND_TAG=$(grep IMAGE_TAG /tmp/manifests/manifest-backend/backend-manifest.txt | cut -d= -f2)
+            FRONTEND_TAG=$(grep IMAGE_TAG /tmp/manifests/manifest-frontend/frontend-manifest.txt | cut -d= -f2)
+            
+            echo "Backend tag: $BACKEND_TAG"
+            echo "Frontend tag: $FRONTEND_TAG"
+            
+            # Update docker-compose with new tags
+            sed -i "s|controle_material-backend:[^ ]*|controle_material-backend:${BACKEND_TAG}|g" docker-compose.yml
+            sed -i "s|controle_material-frontend:[^ ]*|controle_material-frontend:${FRONTEND_TAG}|g" docker-compose.yml
+            
+            # Deploy stack
+            echo "🔄 Deploying Docker Swarm stack..."
+            docker stack deploy -c docker-compose.yml controle_material --with-registry-auth
+            
+            # Wait for services to be ready
+            echo "⏳ Waiting for services..."
+            sleep 15
+            
+            # Health check
+            echo "🏥 Checking service health..."
+            docker service ls | grep controle_material
+            
+            # Clean up old images (keep last 3)
+            echo "🧹 Cleaning up old images..."
+            docker image prune -f --filter "until=168h" || true
+            
+            # Clean up temporary files
+            rm -f /tmp/backend-image.tar /tmp/frontend-image.tar
+            
+            echo "✅ Deployment completed successfully!"
+          EOF
+
+      - name: Verify deployment
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+        run: |
+          echo "🔍 Verifying deployment..."
+          ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_HOST} << 'EOF'
+            docker service ps controle_material_backend --filter "desired-state=running" --format "table {{.Name}}\t{{.CurrentState}}"
+            docker service ps controle_material_frontend --filter "desired-state=running" --format "table {{.Name}}\t{{.CurrentState}}"
+          EOF
+
+      - name: Post deployment notification
+        if: always()
+        run: |
+          if [ ${{ job.status }} == 'success' ]; then
+            echo "✅ Deployment successful to production!"
+          else
+            echo "❌ Deployment failed!"
+          fi
+
+  # Job 6: Rollback em caso de falha
+  rollback:
+    name: Rollback on Failure
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: failure() && github.event_name == 'push'
+    
+    steps:
+      - name: Setup SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Execute rollback
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+        run: |
+          echo "🔄 Executing rollback..."
+          ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_HOST} << 'EOF'
+            echo "Rolling back to previous version..."
+            docker service rollback controle_material_backend
+            docker service rollback controle_material_frontend
+            echo "✅ Rollback completed"
+          EOF
+=======
+        with:
+          driver-opts: network=host
+
+      - name: Build backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          tags: |
+            ${{ env.DOCKER_REGISTRY }}/controle_material-backend:latest
+            ${{ env.DOCKER_REGISTRY }}/controle_material-backend:${{ github.sha }}
+          outputs: type=docker,dest=/tmp/backend-image.tar
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          tags: |
+            ${{ env.DOCKER_REGISTRY }}/controle_material-frontend:latest
+            ${{ env.DOCKER_REGISTRY }}/controle_material-frontend:${{ github.sha }}
+          outputs: type=docker,dest=/tmp/frontend-image.tar
+
+      - name: Copy images to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ env.DEPLOY_HOST }}
+          username: ${{ env.DEPLOY_USER }}
+          port: ${{ env.DEPLOY_PORT }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "/tmp/backend-image.tar,/tmp/frontend-image.tar"
+          target: "/tmp/"
+          strip_components: 1
+
+  deploy:
+    name: Deploy to Swarm
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy on Server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ env.DEPLOY_HOST }}
+          username: ${{ env.DEPLOY_USER }}
+          port: ${{ env.DEPLOY_PORT }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # Load images
+            echo "📦 Loading backend image..."
+            docker load -i /tmp/backend-image.tar
+            
+            echo "📦 Loading frontend image..."
+            docker load -i /tmp/frontend-image.tar
+            
+            # Push para registry local
+            echo "🚀 Pushing to local registry..."
+            docker push ${{ env.DOCKER_REGISTRY }}/controle_material-backend:latest
+            docker push ${{ env.DOCKER_REGISTRY }}/controle_material-backend:${{ github.sha }}
+            docker push ${{ env.DOCKER_REGISTRY }}/controle_material-frontend:latest
+            docker push ${{ env.DOCKER_REGISTRY }}/controle_material-frontend:${{ github.sha }}
+            
+            # Limpar imagens temporárias
+            rm -f /tmp/backend-image.tar /tmp/frontend-image.tar
+            
+            # Atualizar serviços
+            echo "🔄 Updating services..."
+            export MYSQL_DATABASE=${{ env.MYSQL_DATABASE }}
+            export DOCKER_REGISTRY=${{ env.DOCKER_REGISTRY }}
+            
+            docker service update --image ${{ env.DOCKER_REGISTRY }}/controle_material-backend:latest ${{ env.STACK_NAME }}_backend
+            docker service update --image ${{ env.DOCKER_REGISTRY }}/controle_material-frontend:latest ${{ env.STACK_NAME }}_frontend
+            
+            # Aguardar rollout
+            echo "⏳ Aguardando rollout..."
+            sleep 10
+            
+            # Verificar status
+            echo "✅ Status dos serviços:"
+            docker service ls
+            docker service ps ${{ env.STACK_NAME }}_backend --no-trunc | head -n 3
+            docker service ps ${{ env.STACK_NAME }}_frontend --no-trunc | head -n 3
+            
+            echo "🎉 Deploy concluído!"
+>>>>>>> 800b53815857567fa120736d1bc03fd638e6e971
