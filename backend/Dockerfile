@@ -1,5 +1,5 @@
 # Etapa 1 - Base mínima
-FROM node:18-alpine AS base
+FROM node:25-alpine AS base
 
 # Configurar npm
 ENV NODE_ENV=production
