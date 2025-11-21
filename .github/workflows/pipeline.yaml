@@ -12,7 +12,7 @@ env:
   PROJECT_DIR: /home/admin-ti/controle_material
   DOCKER_REGISTRY: 10.10.1.222:5000
   MYSQL_DATABASE: controle_material
-  STACK_NAME: controle_estoque
+  STACK_NAME: controle_material
 
 jobs:
   build:
@@ -80,6 +80,22 @@ jobs:
           echo "📦 Loading frontend image..."
           docker load -i frontend-image.tar
 
+          echo "🔍 Detecting service names..."
+          # Detectar nome real dos serviços (pode ser controle_material_backend ou controle_estoque_backend)
+          BACKEND_SERVICE=$(docker service ls --format "{{.Name}}" | grep backend | head -n 1)
+          FRONTEND_SERVICE=$(docker service ls --format "{{.Name}}" | grep frontend | head -n 1)
+          
+          if [ -z "$BACKEND_SERVICE" ] || [ -z "$FRONTEND_SERVICE" ]; then
+            echo "❌ Services not found! Available services:"
+            docker service ls
+            exit 1
+          fi
+          
+          echo "✅ Found services:"
+          echo "  Backend: $BACKEND_SERVICE"
+          echo "  Frontend: $FRONTEND_SERVICE"
+
+          echo ""
           echo "🔄 Updating Swarm services (zero downtime)..."
           
           # Atualizar backend com rolling update
@@ -88,7 +104,9 @@ jobs:
             --update-parallelism 1 \
             --update-delay 10s \
             --update-order start-first \
-            ${{ env.STACK_NAME }}_backend
+            "$BACKEND_SERVICE"
+          
+          echo "✅ Backend update initiated"
           
           # Atualizar frontend com rolling update
           docker service update \
@@ -96,30 +114,40 @@ jobs:
             --update-parallelism 1 \
             --update-delay 10s \
             --update-order start-first \
-            ${{ env.STACK_NAME }}_frontend
+            "$FRONTEND_SERVICE"
+          
+          echo "✅ Frontend update initiated"
 
+          echo ""
           echo "🧹 Cleaning up tar files..."
           rm -f backend-image.tar frontend-image.tar
 
           echo "⏳ Waiting for rollout to complete..."
           sleep 15
 
+          echo ""
           echo "✅ Service status:"
-          docker service ls | grep ${{ env.STACK_NAME }}
+          docker service ls | grep -E "(backend|frontend)"
+          
           echo ""
           echo "📊 Backend replicas:"
-          docker service ps ${{ env.STACK_NAME }}_backend --filter "desired-state=running" --format "table {{.Name}}\t{{.CurrentState}}\t{{.Error}}" | head -n 5
+          docker service ps "$BACKEND_SERVICE" --filter "desired-state=running" --format "table {{.Name}}\t{{.CurrentState}}\t{{.Error}}" | head -n 5
+          
           echo ""
           echo "📊 Frontend replicas:"
-          docker service ps ${{ env.STACK_NAME }}_frontend --filter "desired-state=running" --format "table {{.Name}}\t{{.CurrentState}}\t{{.Error}}" | head -n 5
+          docker service ps "$FRONTEND_SERVICE" --filter "desired-state=running" --format "table {{.Name}}\t{{.CurrentState}}\t{{.Error}}" | head -n 5
 
           # Verificar se há erros
-          BACKEND_ERRORS=$(docker service ps ${{ env.STACK_NAME }}_backend --filter "desired-state=running" --format "{{.Error}}" | grep -v "^$" || true)
-          FRONTEND_ERRORS=$(docker service ps ${{ env.STACK_NAME }}_frontend --filter "desired-state=running" --format "{{.Error}}" | grep -v "^$" || true)
+          BACKEND_ERRORS=$(docker service ps "$BACKEND_SERVICE" --filter "desired-state=running" --format "{{.Error}}" | grep -v "^$" || true)
+          FRONTEND_ERRORS=$(docker service ps "$FRONTEND_SERVICE" --filter "desired-state=running" --format "{{.Error}}" | grep -v "^$" || true)
           
           if [ -n "$BACKEND_ERRORS" ] || [ -n "$FRONTEND_ERRORS" ]; then
+            echo ""
             echo "❌ Errors detected during deployment!"
+            [ -n "$BACKEND_ERRORS" ] && echo "Backend errors: $BACKEND_ERRORS"
+            [ -n "$FRONTEND_ERRORS" ] && echo "Frontend errors: $FRONTEND_ERRORS"
             exit 1
           fi
 
+          echo ""
           echo "🎉 Deploy completed successfully with zero downtime!"
