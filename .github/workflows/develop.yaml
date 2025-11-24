@@ -114,8 +114,6 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
-    environment:
-      name: development
     steps:
       - name: Deploy on Server
         uses: appleboy/ssh-action@v1.0.0
