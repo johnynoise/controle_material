@@ -12,10 +12,10 @@ env:
   DEPLOY_HOST: 10.10.1.222
   DEPLOY_USER: root
   DEPLOY_PORT: 22
-  PROJECT_DIR: /home/admin-ti/controle_material_dev
+  PROJECT_DIR: /home/admin-ti/controle_material
   DOCKER_REGISTRY: 10.10.1.222:5000
-  MYSQL_DATABASE: controle_material_dev
-  STACK_NAME: controle_estoque_dev
+  MYSQL_DATABASE: controle_material
+  STACK_NAME: controle_estoque
 
 jobs:
   test:
@@ -116,7 +116,6 @@ jobs:
     if: github.event_name == 'push'
     environment:
       name: development
-      url: http://dev.estoque.ti.wasion.com.br
     steps:
       - name: Deploy on Server
         uses: appleboy/ssh-action@v1.0.0
