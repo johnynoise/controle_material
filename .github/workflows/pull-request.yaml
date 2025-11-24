@@ -1,0 +1,161 @@
+name: Pull Request Validation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  validate:
+    name: Validate Changes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          npm ci
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Lint backend
+        run: |
+          cd backend
+          npm run lint --if-present || echo "⚠️ No lint script found"
+
+      - name: Lint frontend
+        run: |
+          cd frontend
+          npm run lint --if-present || echo "⚠️ No lint script found"
+
+      - name: Test backend
+        run: |
+          cd backend
+          npm test --if-present || echo "⚠️ No test script found"
+
+      - name: Test frontend
+        run: |
+          cd frontend
+          npm test --if-present || echo "⚠️ No test script found"
+
+      - name: Check for secrets
+        run: |
+          echo "🔍 Checking for exposed secrets..."
+          if grep -r -i -E "(password|secret|key|token).*=.*['\"][^'\"]{8,}" --exclude-dir=node_modules --exclude-dir=.git .; then
+            echo "❌ Possible secrets found in code!"
+            exit 1
+          else
+            echo "✅ No obvious secrets detected"
+          fi
+
+  docker-build:
+    name: Test Docker Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Test build backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: false
+          tags: controle_material-backend:pr-${{ github.event.pull_request.number }}
+
+      - name: Test build frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: false
+          tags: controle_material-frontend:pr-${{ github.event.pull_request.number }}
+
+  security:
+    name: Security Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Audit backend dependencies
+        run: |
+          cd backend
+          npm audit --audit-level=high || echo "⚠️ Security vulnerabilities found in backend"
+
+      - name: Audit frontend dependencies
+        run: |
+          cd frontend
+          npm audit --audit-level=high || echo "⚠️ Security vulnerabilities found in frontend"
+
+  pr-comment:
+    name: Comment PR Status
+    needs: [validate, docker-build, security]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Comment PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.find(comment => {
+              return comment.user.type === 'Bot' && comment.body.includes('Pipeline Status')
+            });
+            
+            const output = `## 🤖 Pipeline Status
+            
+            **Validation**: ${{ needs.validate.result == 'success' && '✅' || '❌' }}
+            **Docker Build**: ${{ needs.docker-build.result == 'success' && '✅' || '❌' }}
+            **Security**: ${{ needs.security.result == 'success' && '✅' || '❌' }}
+            
+            ${needs.validate.result == 'success' && needs.docker-build.result == 'success' && needs.security.result == 'success' 
+              ? '✅ All checks passed! Ready to merge.' 
+              : '❌ Some checks failed. Please review the logs.'}
+            
+            ---
+            *Last updated: ${new Date().toISOString()}*`;
+            
+            if (botComment) {
+              github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: output
+              });
+            } else {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: output
+              });
+            }

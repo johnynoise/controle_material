@@ -1,0 +1,128 @@
+name: Hotfix Pipeline
+
+on:
+  push:
+    branches:
+      - hotfix/*
+
+env:
+  DEPLOY_HOST: 10.10.1.222
+  DEPLOY_USER: root
+  DEPLOY_PORT: 22
+  PROJECT_DIR: /home/admin-ti/controle_material
+  DOCKER_REGISTRY: 10.10.1.222:5000
+  MYSQL_DATABASE: controle_material
+  STACK_NAME: controle_estoque
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          npm ci
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Test backend
+        run: |
+          cd backend
+          npm test --if-present
+
+      - name: Test frontend
+        run: |
+          cd frontend
+          npm test --if-present
+
+  build:
+    name: Build Hotfix Images
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract hotfix version
+        id: version
+        run: echo "HOTFIX_VERSION=${GITHUB_REF#refs/heads/hotfix/}" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: network=host
+
+      - name: Build backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          tags: |
+            ${{ env.DOCKER_REGISTRY }}/controle_material-backend:hotfix-${{ steps.version.outputs.HOTFIX_VERSION }}
+            ${{ env.DOCKER_REGISTRY }}/controle_material-backend:hotfix-${{ github.sha }}
+          outputs: type=docker,dest=/tmp/backend-image.tar
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          tags: |
+            ${{ env.DOCKER_REGISTRY }}/controle_material-frontend:hotfix-${{ steps.version.outputs.HOTFIX_VERSION }}
+            ${{ env.DOCKER_REGISTRY }}/controle_material-frontend:hotfix-${{ github.sha }}
+          outputs: type=docker,dest=/tmp/frontend-image.tar
+
+      - name: Copy images to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ env.DEPLOY_HOST }}
+          username: ${{ env.DEPLOY_USER }}
+          port: ${{ env.DEPLOY_PORT }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "/tmp/backend-image.tar,/tmp/frontend-image.tar"
+          target: "/tmp/"
+          strip_components: 1
+
+      - name: Push hotfix images to registry
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ env.DEPLOY_HOST }}
+          username: ${{ env.DEPLOY_USER }}
+          port: ${{ env.DEPLOY_PORT }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # Load images
+            echo "📦 Loading hotfix images..."
+            docker load -i /tmp/backend-image.tar
+            docker load -i /tmp/frontend-image.tar
+            
+            # Push para registry local
+            echo "🚀 Pushing hotfix to local registry..."
+            docker push ${{ env.DOCKER_REGISTRY }}/controle_material-backend:hotfix-${{ steps.version.outputs.HOTFIX_VERSION }}
+            docker push ${{ env.DOCKER_REGISTRY }}/controle_material-backend:hotfix-${{ github.sha }}
+            docker push ${{ env.DOCKER_REGISTRY }}/controle_material-frontend:hotfix-${{ steps.version.outputs.HOTFIX_VERSION }}
+            docker push ${{ env.DOCKER_REGISTRY }}/controle_material-frontend:hotfix-${{ github.sha }}
+            
+            # Limpar imagens temporárias
+            rm -f /tmp/backend-image.tar /tmp/frontend-image.tar
+            
+            echo "✅ Hotfix images ready for manual deployment!"
+            echo "To deploy, run:"
+            echo "  docker service update --image ${{ env.DOCKER_REGISTRY }}/controle_material-backend:hotfix-${{ steps.version.outputs.HOTFIX_VERSION }} ${{ env.STACK_NAME }}_backend"
+            echo "  docker service update --image ${{ env.DOCKER_REGISTRY }}/controle_material-frontend:hotfix-${{ steps.version.outputs.HOTFIX_VERSION }} ${{ env.STACK_NAME }}_frontend"
