@@ -21,29 +21,26 @@ services:
         constraints: [node.role == manager]
       replicas: 1
 
-  db:
-    image: mysql:8.0
-    command: ["--default-authentication-plugin=mysql_native_password"]
-    environment:
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
-      MYSQL_USER_FILE: /run/secrets/mysql_user
-      MYSQL_PASSWORD_FILE: /run/secrets/mysql_password
-    volumes:
-      - db_data:/var/lib/mysql
-    networks:
-      - controle_overlay
-    secrets:
-      - mysql_root_password
-      - mysql_user
-      - mysql_password
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 10s
-      retries: 15
-    deploy:
-      replicas: 1
+db:
+  image: mysql:8.0
+  command: ["--default-authentication-plugin=mysql_native_password"]
+  environment:
+    MYSQL_DATABASE: ${MYSQL_DATABASE}
+    MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
+    MYSQL_USER_FILE: /run/secrets/mysql_user
+    MYSQL_PASSWORD_FILE: /run/secrets/mysql_password
+  volumes:
+    - db_data:/var/lib/mysql
+  networks:
+    - controle_overlay
+  secrets:
+    - mysql_root_password
+    - mysql_user
+    - mysql_password
+  ports:
+    - "3308:3306"   # 🌟 AQUI: expõe a porta 3306 na porta 3308 do host
+  deploy:
+    replicas: 1
       resources:
         limits:
           cpus: "1.0"
