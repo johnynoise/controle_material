@@ -40,8 +40,8 @@ WORKDIR /app
 # Configurar ambiente
 ENV PORT=3001
 
-# Instalar apenas mysql-client mínimo
-RUN apk add --no-cache mysql-client netcat-openbsd --repository=https://dl-cdn.alpinelinux.org/alpine/latest-stable/main && \
+# Instalar apenas mysql-client mínimo e curl para healthcheck
+RUN apk add --no-cache mysql-client netcat-openbsd curl --repository=https://dl-cdn.alpinelinux.org/alpine/latest-stable/main && \
     rm -rf /var/cache/apk/* && \
     addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001 && \

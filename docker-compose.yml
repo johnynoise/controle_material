@@ -23,7 +23,11 @@ services:
 
   db:
     image: mysql:8.0
-    command: ["--default-authentication-plugin=mysql_native_password"]
+    command:
+      - "--default-authentication-plugin=mysql_native_password"
+      - "--max-connections=100"
+      - "--innodb-buffer-pool-size=512M"
+      - "--performance-schema=OFF"
     environment:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
@@ -37,15 +41,25 @@ services:
       - mysql_root_password
       - mysql_user
       - mysql_password
-    # Porta removida - sem exposição externa (comunicação apenas interna via overlay network)
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
     deploy:
       replicas: 1
       resources:
         limits:
           cpus: "1.0"
-          memory: 2G
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
       restart_policy:
         condition: on-failure
+        delay: 10s
+        max_attempts: 5
 
   backend:
     image: ${DOCKER_REGISTRY:-10.10.1.222:5000}/controle_material-backend:latest
@@ -60,8 +74,21 @@ services:
       - jwt_secret
       - ldap_bind_password
       - database_url
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     deploy:
       replicas: 1
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
       restart_policy:
         condition: on-failure
         delay: 10s
@@ -88,6 +115,13 @@ services:
       - controle_overlay
     deploy:
       replicas: 1
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 128M
       restart_policy:
         condition: on-failure
         delay: 10s
