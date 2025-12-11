@@ -59,6 +59,9 @@ jobs:
     needs: build
     runs-on: self-hosted  # Runner no mesmo servidor do Swarm
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Download backend image
         uses: actions/download-artifact@v4
         with:
@@ -86,9 +89,20 @@ jobs:
           FRONTEND_SERVICE=$(docker service ls --format "{{.Name}}" | grep frontend | head -n 1)
           
           if [ -z "$BACKEND_SERVICE" ] || [ -z "$FRONTEND_SERVICE" ]; then
-            echo "❌ Services not found! Available services:"
-            docker service ls
-            exit 1
+            echo "⚠️ Services not found! Performing initial stack deployment..."
+            echo ""
+            echo "📋 Deploying stack from docker-compose.yml..."
+            docker stack deploy -c docker-compose.yml ${{ env.STACK_NAME }}
+            
+            echo "⏳ Waiting for services to start..."
+            sleep 20
+            
+            echo "✅ Stack deployed successfully!"
+            docker service ls | grep ${{ env.STACK_NAME }}
+            
+            echo ""
+            echo "🎉 Initial deployment completed!"
+            exit 0
           fi
           
           echo "✅ Found services:"
