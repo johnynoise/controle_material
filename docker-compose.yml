@@ -38,7 +38,7 @@ db:
     - mysql_user
     - mysql_password
   ports:
-    - "3308:3306"   # 🌟 AQUI: expõe a porta 3306 na porta 3308 do host
+    - "3308:33060"   # 🌟 AQUI: expõe a porta 3306 na porta 3308 do host
   deploy:
     replicas: 1
       resources:
