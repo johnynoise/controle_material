@@ -41,14 +41,14 @@ jobs:
                       ${{ env.DOCKER_REGISTRY }}/controle_material-frontend:${{ github.sha }}
 
       - name: Upload backend image artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: backend-image
           path: backend-image.tar
           retention-days: 1
 
       - name: Upload frontend image artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: frontend-image
           path: frontend-image.tar
