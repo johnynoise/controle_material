@@ -20,7 +20,7 @@ jobs:
     runs-on: self-hosted
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Build backend image
         run: |
@@ -60,7 +60,7 @@ jobs:
     runs-on: self-hosted  # Runner no mesmo servidor do Swarm
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Download backend image
         uses: actions/download-artifact@v4
